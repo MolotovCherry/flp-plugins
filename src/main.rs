@@ -1,42 +1,44 @@
-use std::env;
-use rust_strings::{FileConfig, BytesConfig, strings, dump_strings, Encoding};
+use std::{env, path::Path};
+
+use rust_strings::{strings, FileConfig};
 
 fn main() {
-    let mut args = env::args();
-    if args.len() <= 1 {
+    let mut args = env::args().skip(1);
+
+    let Some(file) = args.next() else {
         println!("Usage: flp-plugins <flp_file>.flp");
         return;
-    }
+    };
 
-    let file = args.nth(1).unwrap();
-    let file = FileConfig::new(&file);
+    let file = FileConfig::new(Path::new(&file));
 
     let all_strings = strings(&file).unwrap();
 
-    for s in all_strings {
-        if s.0.contains(".vst3") ||
-           s.0.contains(".dll") ||
-           s.0.contains(".clap") {
+    for (plugin, _) in all_strings {
+        let mut type_ = None;
 
-            let plugin = s.0;
-            let matchs;
-            let ext;
-            if plugin.contains(".vst3") {
-                matchs = plugin.rmatch_indices("vst3").collect::<Vec<_>>()[0];
-                ext = ".vst3";
-            } else if plugin.contains(".dll") {
-                matchs = plugin.rmatch_indices("dll").collect::<Vec<_>>()[0];
-                ext = ".dll";
-            } else {
-                matchs = plugin.rmatch_indices("clap").collect::<Vec<_>>()[0];
-                ext = ".clap";
-            }
+        if plugin.contains(".vst3") {
+            type_ = Some(("vst3", ".vst3"));
+        } else if plugin.contains(".dll") {
+            type_ = Some(("dll", ".dll"));
+        } else if plugin.contains(".clap") {
+            type_ = Some(("clap", ".clap"));
+        }
+
+        if let Some((type_, ext)) = type_ {
+            let mat = plugin.rmatch_indices(type_).collect::<Vec<_>>();
+            let Some((idx, _)) = mat.first() else {
+                continue;
+            };
+
+            let Some(idx) = idx.checked_sub(1) else {
+                continue;
+            };
 
             // slice at index, then tack on the end
-            let base = &plugin[..matchs.0-1];
-            let plugin = format!("{base}{ext}");
+            let base = &plugin[..idx];
 
-            println!("{plugin}");
+            println!("{base}{ext}");
         }
     }
 }
